@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>İHA Uçuş Raporlama</title>
+<meta name="description" content="İHA uçuş/test raporlama - offline">
+<meta name="theme-color" content="#1F3B57">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="İHA Rapor">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <span class="app-header-title">İHA Uçuş Raporlama</span>
+  <span id="offline-badge" class="offline-badge" hidden>Çevrimdışı</span>
+</header>
+
+<main id="app-root">
+
+  <!-- ================= ANA MENÜ ================= -->
+  <section id="view-home" class="view">
+    <h1 class="page-title">Ana Menü</h1>
+    <p class="page-subtitle">Yeni bir rapor başlatın veya kayıtlı bir taslağı açın.</p>
+
+    <div class="actions-row">
+      <button id="btn-new-report" class="btn btn-primary">+ Yeni Rapor</button>
+      <button id="btn-backup-export" class="btn">Yedek İndir</button>
+      <button id="btn-backup-import" class="btn">Yedek Yükle</button>
+      <input id="backup-file-input" type="file" accept="application/json" hidden>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Taslaklarım</h2>
+      <ul id="drafts-list" class="list"></ul>
+      <p id="drafts-empty" class="page-subtitle" hidden>Henüz kaydedilmiş taslak yok…</p>
+      <div class="actions-row">
+        <button id="btn-open-draft" class="btn" disabled>Taslağı Aç</button>
+        <button id="btn-delete-draft" class="btn btn-danger" disabled>Taslağı Sil</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WIZARD ================= -->
+  <section id="view-wizard" class="view" hidden>
+    <nav class="step-bar" id="step-bar">
+      <button class="step-btn" data-step="0">1. Genel Bilgiler</button>
+      <button class="step-btn" data-step="1">2. Uçuşlar</button>
+      <button class="step-btn" data-step="2">3. Rapor Önizleme</button>
+      <button class="step-btn" data-step="3">4. Onay ve Çıktı</button>
+    </nav>
+
+    <!-- Adım 1: Genel Bilgiler -->
+    <div class="step-page" id="step-0">
+      <h1 class="page-title">Genel Bilgiler</h1>
+      <p class="page-subtitle">Platform ve test bilgilerini girin. (*) ile işaretli alanlar zorunludur.</p>
+      <div class="card">
+        <form id="general-form" class="field-grid"></form>
+      </div>
+    </div>
+
+    <!-- Adım 2: Uçuşlar -->
+    <div class="step-page" id="step-1" hidden>
+      <h1 class="page-title">Uçuşlar</h1>
+      <p class="page-subtitle">Rapora bir veya daha fazla uçuş ekleyin. Her uçuş için notlar zorunludur.</p>
+      <div class="card">
+        <div class="actions-row">
+          <button id="btn-add-flight" class="btn btn-primary">+ Uçuş Ekle</button>
+          <span class="spacer"></span>
+          <button id="btn-flight-up" class="btn" disabled>▲ Yukarı</button>
+          <button id="btn-flight-down" class="btn" disabled>▼ Aşağı</button>
+          <button id="btn-flight-edit" class="btn" disabled>Düzenle</button>
+          <button id="btn-flight-delete" class="btn btn-danger" disabled>Sil</button>
+        </div>
+        <ul id="flights-list" class="list"></ul>
+        <p id="flights-empty" class="page-subtitle" hidden>Henüz uçuş eklenmedi. Başlamak için "+ Uçuş Ekle" butonuna basın.</p>
+      </div>
+    </div>
+
+    <!-- Adım 3: Önizleme -->
+    <div class="step-page" id="step-2" hidden>
+      <h1 class="page-title">Rapor Önizleme</h1>
+      <p class="page-subtitle">Word dosyası oluşturulmadan önce raporun nasıl görüneceğini kontrol edin.</p>
+      <div class="card preview-card">
+        <div id="preview-content"></div>
+      </div>
+      <div class="actions-row">
+        <button id="btn-preview-back" class="btn">◀ Düzenlemeye Dön</button>
+        <span class="spacer"></span>
+        <button id="btn-preview-continue" class="btn btn-primary">İleri: Onay ▶</button>
+      </div>
+    </div>
+
+    <!-- Adım 4: Onay -->
+    <div class="step-page" id="step-3" hidden>
+      <h1 class="page-title">Rapor Onayı</h1>
+      <div class="card">
+        <p id="confirm-message" class="warning-banner"></p>
+        <ul id="confirm-errors" class="error-list"></ul>
+      </div>
+      <div class="actions-row">
+        <button id="btn-confirm-back" class="btn">← Düzenlemeye Dön</button>
+        <span class="spacer"></span>
+        <button id="btn-save-draft" class="btn">Taslak Kaydet</button>
+        <button id="btn-approve" class="btn btn-success" disabled>✓ Raporu Onayla ve Word Oluştur</button>
+      </div>
+    </div>
+
+    <!-- Alt bar: sadece adım 1-2'de görünür -->
+    <div class="bottom-bar" id="bottom-bar">
+      <button id="btn-go-back" class="btn">◀ Geri</button>
+      <span class="spacer"></span>
+      <button id="btn-home" class="btn btn-link">Ana Menüye Dön</button>
+      <span class="spacer"></span>
+      <button id="btn-go-next" class="btn btn-primary">İleri ▶</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- Uçuş Ekle/Düzenle modal -->
+<div id="flight-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="flight-modal-title" class="section-title">Uçuş Ekle</h2>
+    <label class="field-label" for="flight-notlar">Uçuş Notları *</label>
+    <textarea id="flight-notlar" class="textarea-lg" placeholder="Uçuş saatini, süresini, yaşanan olayları, gözlemleri ve test sonuçlarını yazın..."></textarea>
+    <div class="actions-row">
+      <span class="spacer"></span>
+      <button id="btn-flight-cancel" class="btn">Vazgeç</button>
+      <button id="btn-flight-save" class="btn btn-primary">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Taslak Kaydet modal -->
+<div id="save-draft-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 class="section-title">Taslak Kaydet</h2>
+    <label class="field-label" for="save-draft-name">Taslak adı</label>
+    <input id="save-draft-name" type="text" class="input">
+    <div class="actions-row">
+      <span class="spacer"></span>
+      <button id="btn-save-draft-cancel" class="btn">Vazgeç</button>
+      <button id="btn-save-draft-confirm" class="btn btn-primary">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Genel bildirim modal (alert/confirm yerine) -->
+<div id="notify-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="notify-title" class="section-title"></h2>
+    <p id="notify-message"></p>
+    <div class="actions-row">
+      <span class="spacer"></span>
+      <button id="notify-btn-no" class="btn" hidden>Hayır</button>
+      <button id="notify-btn-yes" class="btn btn-primary">Tamam</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/docx.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
