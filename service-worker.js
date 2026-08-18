@@ -1,7 +1,7 @@
 // Offline-first service worker: tüm uygulama kabuğunu önbelleğe alır,
 // böylece internet olmadan tam çalışır. Sürüm değiştikçe CACHE_NAME'i artırın.
 
-const CACHE_NAME = "iha-rapor-v1";
+const CACHE_NAME = "iha-rapor-v5";
 
 const PRECACHE_URLS = [
   "./",
@@ -19,6 +19,7 @@ const PRECACHE_URLS = [
   "./js/ui/home.js",
   "./js/ui/preview-page.js",
   "./vendor/docx.min.js",
+  "./icons/logo.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

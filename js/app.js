@@ -4,7 +4,7 @@ import { createReport, createFlight, addFlight, removeFlight, moveFlight } from 
 import { validateReport } from "./validation.js";
 import * as storage from "./storage.js";
 import { downloadBackup, restoreBackupFile } from "./backup.js";
-import { exportReportBlob, suggestFilename } from "./docx-export.js";
+import { exportReportBlob, suggestFilenamePrefix, buildFilename } from "./docx-export.js";
 import { renderGeneralForm, getGeneralData, setGeneralData, markGeneralErrors, todayDisplay } from "./ui/general-page.js";
 import { renderFlightsList, updateFlightButtonStates } from "./ui/flights-page.js";
 import { renderDraftsList, updateDraftButtonStates } from "./ui/home.js";
@@ -24,6 +24,8 @@ const dom = {
   btnNewReport: el("btn-new-report"),
   btnOpenDraft: el("btn-open-draft"),
   btnDeleteDraft: el("btn-delete-draft"),
+  btnMenuToggle: el("btn-menu-toggle"),
+  backupMenu: el("backup-menu"),
   btnBackupExport: el("btn-backup-export"),
   btnBackupImport: el("btn-backup-import"),
   backupFileInput: el("backup-file-input"),
@@ -57,6 +59,8 @@ const dom = {
 
   confirmMessage: el("confirm-message"),
   confirmErrors: el("confirm-errors"),
+  recordNameInput: el("record-name-input"),
+  recordNamePreview: el("record-name-preview"),
   btnConfirmBack: el("btn-confirm-back"),
   btnSaveDraft: el("btn-save-draft"),
   btnApprove: el("btn-approve"),
@@ -167,8 +171,8 @@ dom.btnOpenDraft.addEventListener("click", () => {
 dom.btnDeleteDraft.addEventListener("click", async () => {
   if (!state.selectedDraftKey) return;
   const ok = await notify({
-    title: "Taslağı Sil",
-    message: "Bu taslağı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+    title: "Raporu Sil",
+    message: "Bu raporu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
     showNo: true,
   });
   if (!ok) return;
@@ -177,11 +181,24 @@ dom.btnDeleteDraft.addEventListener("click", async () => {
   refreshDrafts();
 });
 
+dom.btnMenuToggle.addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  dom.backupMenu.hidden = !dom.backupMenu.hidden;
+});
+
+document.addEventListener("click", (ev) => {
+  if (!dom.backupMenu.hidden && !dom.backupMenu.contains(ev.target) && ev.target !== dom.btnMenuToggle) {
+    dom.backupMenu.hidden = true;
+  }
+});
+
 dom.btnBackupExport.addEventListener("click", () => {
   downloadBackup();
+  dom.backupMenu.hidden = true;
 });
 
 dom.btnBackupImport.addEventListener("click", () => {
+  dom.backupMenu.hidden = true;
   dom.backupFileInput.click();
 });
 
@@ -203,7 +220,15 @@ dom.backupFileInput.addEventListener("change", async () => {
 function commitCurrentPage() {
   if (state.currentStep === 0) {
     state.report.general = getGeneralData(dom.generalForm);
+  } else if (state.currentStep === 3) {
+    state.report.filenamePrefix = dom.recordNameInput.value.trim();
   }
+}
+
+function updateRecordNamePreview() {
+  const prefix = dom.recordNameInput.value.trim() || suggestFilenamePrefix(state.report);
+  const filename = buildFilename(prefix, state.report.general.tarih);
+  dom.recordNamePreview.textContent = `Dosya adı: ${filename}`;
 }
 
 function autosave() {
@@ -255,6 +280,8 @@ function goToStep(index) {
       dom.confirmErrors.innerHTML = "";
       dom.btnApprove.disabled = false;
     }
+    dom.recordNameInput.value = state.report.filenamePrefix || suggestFilenamePrefix(state.report);
+    updateRecordNamePreview();
   }
 
   autosave();
@@ -273,6 +300,8 @@ dom.btnHome.addEventListener("click", () => {
   autosave();
   showHomeView();
 });
+dom.recordNameInput.addEventListener("input", updateRecordNamePreview);
+
 dom.btnPreviewBack.addEventListener("click", () => goToStep(1));
 dom.btnPreviewContinue.addEventListener("click", () => goToStep(3));
 dom.btnConfirmBack.addEventListener("click", () => goToStep(2));
@@ -422,13 +451,21 @@ dom.btnApprove.addEventListener("click", async () => {
   const errors = validateReport(state.report);
   if (errors.length) return;
 
+  const prefix = dom.recordNameInput.value.trim() || suggestFilenamePrefix(state.report);
+  state.report.filenamePrefix = prefix;
+  const filename = buildFilename(prefix, state.report.general.tarih);
+
   dom.btnApprove.disabled = true;
   try {
     const blob = await exportReportBlob(state.report);
-    const filename = suggestFilename(state.report);
     await downloadOrShareBlob(blob, filename);
+    const recordName = filename.replace(/\.docx$/i, "");
+    storage.saveDraft(state.report, recordName);
     storage.clearAutosave();
-    await notify({ title: "Rapor Oluşturuldu", message: `Word dosyası oluşturuldu: ${filename}` });
+    await notify({
+      title: "Rapor Oluşturuldu",
+      message: `Word dosyası oluşturuldu: ${filename}\nRapor, Ana Menü'deki listenizde kayıtlı kalacak.`,
+    });
     showHomeView();
   } catch (err) {
     await notify({ title: "Hata", message: "Word dosyası oluşturulamadı: " + err.message });

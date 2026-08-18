@@ -66,6 +66,80 @@ body {
   font-size: 0.75rem;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-wrap {
+  position: relative;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.backup-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  min-width: 160px;
+  z-index: 30;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.menu-item:hover {
+  background: var(--selected-bg);
+}
+
+.home-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 8px;
+}
+
+.home-logo {
+  width: 140px;
+  height: 140px;
+}
+
+.app-footer {
+  text-align: center;
+  color: var(--muted-text);
+  font-size: 0.72rem;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+}
+
 #app-root {
   max-width: 720px;
   margin: 0 auto;

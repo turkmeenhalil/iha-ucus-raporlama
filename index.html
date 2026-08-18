@@ -18,30 +18,40 @@
 
 <header class="app-header">
   <span class="app-header-title">İHA Uçuş Raporlama</span>
-  <span id="offline-badge" class="offline-badge" hidden>Çevrimdışı</span>
+  <div class="header-right">
+    <span id="offline-badge" class="offline-badge" hidden>Çevrimdışı</span>
+    <div class="menu-wrap">
+      <button id="btn-menu-toggle" class="icon-btn" aria-label="Menü" title="Yedekleme seçenekleri">⋮</button>
+      <div id="backup-menu" class="backup-menu" hidden>
+        <button id="btn-backup-export" class="menu-item">Yedek İndir</button>
+        <button id="btn-backup-import" class="menu-item">Yedek Yükle</button>
+      </div>
+    </div>
+    <input id="backup-file-input" type="file" accept="application/json" hidden>
+  </div>
 </header>
 
 <main id="app-root">
 
   <!-- ================= ANA MENÜ ================= -->
   <section id="view-home" class="view">
+    <div class="home-logo-wrap">
+      <img src="icons/logo.png" alt="İHA Uçuş Raporlama Logo" class="home-logo">
+    </div>
     <h1 class="page-title">Ana Menü</h1>
-    <p class="page-subtitle">Yeni bir rapor başlatın veya kayıtlı bir taslağı açın.</p>
+    <p class="page-subtitle">Yeni bir rapor başlatın veya kayıtlı bir raporu açın.</p>
 
     <div class="actions-row">
       <button id="btn-new-report" class="btn btn-primary">+ Yeni Rapor</button>
-      <button id="btn-backup-export" class="btn">Yedek İndir</button>
-      <button id="btn-backup-import" class="btn">Yedek Yükle</button>
-      <input id="backup-file-input" type="file" accept="application/json" hidden>
     </div>
 
     <div class="card">
-      <h2 class="section-title">Taslaklarım</h2>
+      <h2 class="section-title">Raporlarım</h2>
       <ul id="drafts-list" class="list"></ul>
-      <p id="drafts-empty" class="page-subtitle" hidden>Henüz kaydedilmiş taslak yok…</p>
+      <p id="drafts-empty" class="page-subtitle" hidden>Henüz kaydedilmiş rapor yok…</p>
       <div class="actions-row">
-        <button id="btn-open-draft" class="btn" disabled>Taslağı Aç</button>
-        <button id="btn-delete-draft" class="btn btn-danger" disabled>Taslağı Sil</button>
+        <button id="btn-open-draft" class="btn" disabled>Raporu Aç</button>
+        <button id="btn-delete-draft" class="btn btn-danger" disabled>Raporu Sil</button>
       </div>
     </div>
   </section>
@@ -103,6 +113,12 @@
         <p id="confirm-message" class="warning-banner"></p>
         <ul id="confirm-errors" class="error-list"></ul>
       </div>
+      <div class="card">
+        <h2 class="section-title">Kayıt Adı</h2>
+        <label class="field-label" for="record-name-input">Dosya adının başı (tarih ve .docx otomatik eklenir)</label>
+        <input id="record-name-input" type="text" class="input" placeholder="Örn: Platform_Proje">
+        <p id="record-name-preview" class="page-subtitle"></p>
+      </div>
       <div class="actions-row">
         <button id="btn-confirm-back" class="btn">← Düzenlemeye Dön</button>
         <span class="spacer"></span>
@@ -163,6 +179,8 @@
     </div>
   </div>
 </div>
+
+<footer class="app-footer">Designed by H.Turkmen</footer>
 
 <script src="vendor/docx.min.js"></script>
 <script type="module" src="js/app.js"></script>

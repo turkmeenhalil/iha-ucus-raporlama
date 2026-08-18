@@ -226,11 +226,16 @@ function cleanFilenamePart(value) {
     .replace(/\s+/g, "");
 }
 
-export function suggestFilename(report) {
+export function suggestFilenamePrefix(report) {
   const platform = cleanFilenamePart(report.general.platform) || "Platform";
   const proje = cleanFilenamePart(report.general.proje) || "Proje";
-  const tarih = cleanFilenamePart(report.general.tarih) || "Tarihsiz";
-  return `${platform}_${proje}_${tarih}_UcusRaporu.docx`;
+  return `${platform}_${proje}_UcusRaporu`;
+}
+
+export function buildFilename(prefix, tarih) {
+  const cleanPrefix = cleanFilenamePart(prefix) || "Rapor";
+  const cleanTarih = cleanFilenamePart(tarih) || "Tarihsiz";
+  return `${cleanPrefix}_${cleanTarih}.docx`;
 }
 
 export async function exportReportBlob(report) {

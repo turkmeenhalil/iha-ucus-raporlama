@@ -37,6 +37,7 @@ export function createReport(data = {}) {
   return {
     general: createGeneralInfo(data.general || {}),
     flights: (data.flights || []).map(createFlight),
+    filenamePrefix: data.filenamePrefix || "",
     created_at: data.created_at || nowIso(),
     updated_at: data.updated_at || nowIso(),
   };
