@@ -1,6 +1,6 @@
 // Wizard koordinatörü (app/ui/report_editor.py + main_window.py karşılığı).
 
-import { createReport, createFlight, addFlight, removeFlight, moveFlight } from "./models.js";
+import { createReport, createFlight, createBlock, flightText, addFlight, removeFlight } from "./models.js";
 import { validateReport } from "./validation.js";
 import * as storage from "./storage.js";
 import { downloadBackup, restoreBackupFile } from "./backup.js";
@@ -44,12 +44,15 @@ const dom = {
   btnAddFlight: el("btn-add-flight"),
   btnFlightEdit: el("btn-flight-edit"),
   btnFlightDelete: el("btn-flight-delete"),
-  btnFlightUp: el("btn-flight-up"),
-  btnFlightDown: el("btn-flight-down"),
 
   flightModal: el("flight-modal"),
   flightModalTitle: el("flight-modal-title"),
-  flightNotlar: el("flight-notlar"),
+  flightBlocksContainer: el("flight-blocks"),
+  flightBlocksError: el("flight-blocks-error"),
+  flightPhotoGalleryInput: el("flight-photo-gallery-input"),
+  flightPhotoCameraInput: el("flight-photo-camera-input"),
+  btnFlightPhotoGallery: el("btn-flight-photo-gallery"),
+  btnFlightPhotoCamera: el("btn-flight-photo-camera"),
   btnFlightCancel: el("btn-flight-cancel"),
   btnFlightSave: el("btn-flight-save"),
 
@@ -84,8 +87,19 @@ const state = {
   maxReached: 0,
   selectedFlightId: null,
   editingFlightId: null,
+  editingBlocks: [],
   selectedDraftKey: null,
 };
+
+// Modal/önizleme için oluşturulan blob object URL'leri; bellek sızıntısını
+// önlemek üzere yeniden çizimden önce serbest bırakılır.
+let modalPhotoUrls = [];
+let previewPhotoUrls = [];
+
+function revokeUrls(list) {
+  list.forEach((url) => URL.revokeObjectURL(url));
+  list.length = 0;
+}
 
 // ---------------- Bildirim (alert/confirm) yardımcı ----------------
 
@@ -119,8 +133,8 @@ window.addEventListener("offline", updateOfflineBadge);
 
 // ---------------- Ana Menü ----------------
 
-function refreshDrafts() {
-  const drafts = storage.listDrafts();
+async function refreshDrafts() {
+  const drafts = await storage.listDrafts();
   renderDraftsList(dom.draftsList, dom.draftsEmpty, drafts, state.selectedDraftKey);
   updateDraftButtonStates(
     { openBtn: dom.btnOpenDraft, deleteBtn: dom.btnDeleteDraft },
@@ -128,12 +142,12 @@ function refreshDrafts() {
   );
 }
 
-function showHomeView() {
+async function showHomeView() {
   state.currentView = "home";
   state.currentStep = -1;
   dom.viewHome.hidden = false;
   dom.viewWizard.hidden = true;
-  refreshDrafts();
+  await refreshDrafts();
 }
 
 function showWizardView() {
@@ -142,11 +156,11 @@ function showWizardView() {
   dom.viewWizard.hidden = false;
 }
 
-dom.draftsList.addEventListener("click", (ev) => {
+dom.draftsList.addEventListener("click", async (ev) => {
   const li = ev.target.closest("li");
   if (!li) return;
   state.selectedDraftKey = li.dataset.key;
-  refreshDrafts();
+  await refreshDrafts();
 });
 
 dom.btnNewReport.addEventListener("click", () => {
@@ -156,10 +170,10 @@ dom.btnNewReport.addEventListener("click", () => {
   goToStep(0);
 });
 
-dom.btnOpenDraft.addEventListener("click", () => {
+dom.btnOpenDraft.addEventListener("click", async () => {
   if (!state.selectedDraftKey) return;
   try {
-    state.report = storage.loadDraft(state.selectedDraftKey);
+    state.report = await storage.loadDraft(state.selectedDraftKey);
     state.maxReached = 3;
     showWizardView();
     goToStep(0);
@@ -176,9 +190,9 @@ dom.btnDeleteDraft.addEventListener("click", async () => {
     showNo: true,
   });
   if (!ok) return;
-  storage.deleteDraft(state.selectedDraftKey);
+  await storage.deleteDraft(state.selectedDraftKey);
   state.selectedDraftKey = null;
-  refreshDrafts();
+  await refreshDrafts();
 });
 
 dom.btnMenuToggle.addEventListener("click", (ev) => {
@@ -192,8 +206,8 @@ document.addEventListener("click", (ev) => {
   }
 });
 
-dom.btnBackupExport.addEventListener("click", () => {
-  downloadBackup();
+dom.btnBackupExport.addEventListener("click", async () => {
+  await downloadBackup();
   dom.backupMenu.hidden = true;
 });
 
@@ -208,7 +222,7 @@ dom.backupFileInput.addEventListener("change", async () => {
   if (!file) return;
   try {
     await restoreBackupFile(file);
-    refreshDrafts();
+    await refreshDrafts();
     await notify({ title: "Yedek Yüklendi", message: "Yedek başarıyla geri yüklendi." });
   } catch (err) {
     await notify({ title: "Hata", message: "Yedek dosyası okunamadı: " + err.message });
@@ -231,8 +245,8 @@ function updateRecordNamePreview() {
   dom.recordNamePreview.textContent = `Dosya adı: ${filename}`;
 }
 
-function autosave() {
-  storage.saveAutosave(state.report);
+async function autosave() {
+  await storage.saveAutosave(state.report);
 }
 
 function updateStepBar() {
@@ -243,9 +257,9 @@ function updateStepBar() {
   });
 }
 
-function goToStep(index) {
+async function goToStep(index) {
   commitCurrentPage();
-  autosave();
+  await autosave();
 
   state.currentStep = index;
   state.maxReached = Math.max(state.maxReached, index);
@@ -262,12 +276,17 @@ function goToStep(index) {
     state.selectedFlightId = null;
     renderFlightsList(dom.flightsList, dom.flightsEmpty, state.report.flights, state.selectedFlightId);
     updateFlightButtonStates(
-      { upBtn: dom.btnFlightUp, downBtn: dom.btnFlightDown, editBtn: dom.btnFlightEdit, deleteBtn: dom.btnFlightDelete },
+      { editBtn: dom.btnFlightEdit, deleteBtn: dom.btnFlightDelete },
       state.report.flights,
       state.selectedFlightId
     );
   } else if (index === 2) {
-    dom.previewContent.innerHTML = buildPreviewHtml(state.report);
+    revokeUrls(previewPhotoUrls);
+    dom.previewContent.innerHTML = buildPreviewHtml(state.report, (photo) => {
+      const url = URL.createObjectURL(photo.blob);
+      previewPhotoUrls.push(url);
+      return url;
+    });
   } else if (index === 3) {
     const errors = validateReport(state.report);
     if (errors.length) {
@@ -284,21 +303,21 @@ function goToStep(index) {
     updateRecordNamePreview();
   }
 
-  autosave();
+  await autosave();
 }
 
-dom.stepBar.addEventListener("click", (ev) => {
+dom.stepBar.addEventListener("click", async (ev) => {
   const btn = ev.target.closest(".step-btn");
   if (!btn || btn.disabled) return;
-  goToStep(Number(btn.dataset.step));
+  await goToStep(Number(btn.dataset.step));
 });
 
 dom.btnGoBack.addEventListener("click", () => goToStep(Math.max(0, state.currentStep - 1)));
 dom.btnGoNext.addEventListener("click", () => goToStep(Math.min(3, state.currentStep + 1)));
-dom.btnHome.addEventListener("click", () => {
+dom.btnHome.addEventListener("click", async () => {
   commitCurrentPage();
-  autosave();
-  showHomeView();
+  await autosave();
+  await showHomeView();
 });
 dom.recordNameInput.addEventListener("input", updateRecordNamePreview);
 
@@ -318,7 +337,7 @@ dom.generalForm.addEventListener("input", () => {
 function refreshFlightsList() {
   renderFlightsList(dom.flightsList, dom.flightsEmpty, state.report.flights, state.selectedFlightId);
   updateFlightButtonStates(
-    { upBtn: dom.btnFlightUp, downBtn: dom.btnFlightDown, editBtn: dom.btnFlightEdit, deleteBtn: dom.btnFlightDelete },
+    { editBtn: dom.btnFlightEdit, deleteBtn: dom.btnFlightDelete },
     state.report.flights,
     state.selectedFlightId
   );
@@ -331,16 +350,84 @@ dom.flightsList.addEventListener("click", (ev) => {
   refreshFlightsList();
 });
 
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value || "";
+  return div.innerHTML;
+}
+
+// Fotoğraf silindiğinde veya kaydedilirken ardışık metin bloklarını birleştirir
+// ve boş kalan kutuları temizler (en az bir metin kutusu her zaman kalır).
+// keepTrailingEmpty: düzenleme sırasında (kaydetmeden) sondaki boş "devam et"
+// kutusunu koru — sadece kaydederken gerçekten boşsa temizlenir.
+function normalizeEditingBlocks({ keepTrailingEmpty = false } = {}) {
+  const merged = [];
+  for (const block of state.editingBlocks) {
+    const prev = merged[merged.length - 1];
+    if (block.type === "text" && prev && prev.type === "text") {
+      prev.text = [prev.text, block.text].filter(Boolean).join("\n");
+      continue;
+    }
+    merged.push(block);
+  }
+  const cleaned = merged.filter((b, i) => {
+    if (b.type === "photo") return true;
+    if (b.text.trim() !== "") return true;
+    return keepTrailingEmpty && i === merged.length - 1;
+  });
+  if (!cleaned.some((b) => b.type === "text")) {
+    cleaned.push(createBlock({ type: "text", text: "" }));
+  }
+  state.editingBlocks = cleaned;
+}
+
+function autoGrow(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+}
+
+function renderFlightBlocks() {
+  revokeUrls(modalPhotoUrls);
+  dom.flightBlocksContainer.innerHTML = state.editingBlocks
+    .map((block) => {
+      if (block.type === "photo") {
+        const url = URL.createObjectURL(block.blob);
+        modalPhotoUrls.push(url);
+        return (
+          `<div class="flight-block flight-block-photo">` +
+          `<img src="${url}" alt="Uçuş fotoğrafı">` +
+          `<button type="button" class="photo-thumb-remove" data-remove-block="${block.id}" title="Kaldır">✕</button>` +
+          `</div>`
+        );
+      }
+      return (
+        `<div class="flight-block flight-block-text">` +
+        `<textarea class="block-textarea" data-block-id="${block.id}" placeholder="Uçuş notlarını yazın...">${escapeHtml(block.text)}</textarea>` +
+        `</div>`
+      );
+    })
+    .join("");
+  dom.flightBlocksContainer.querySelectorAll(".block-textarea").forEach(autoGrow);
+}
+
 function openFlightModal(flight) {
   state.editingFlightId = flight ? flight.id : null;
+  state.editingBlocks = flight ? flight.blocks.map((b) => ({ ...b })) : [createBlock({ type: "text", text: "" })];
+  // Son blok fotoğrafsa, yazmaya devam edilebilsin diye sonuna boş bir metin kutusu eklenir.
+  const last = state.editingBlocks[state.editingBlocks.length - 1];
+  if (!last || last.type !== "text") {
+    state.editingBlocks.push(createBlock({ type: "text", text: "" }));
+  }
   dom.flightModalTitle.textContent = flight ? "Uçuş Düzenle" : "Uçuş Ekle";
-  dom.flightNotlar.value = flight ? flight.notlar : "";
-  dom.flightNotlar.classList.remove("error");
+  dom.flightBlocksError.hidden = true;
+  renderFlightBlocks();
   dom.flightModal.hidden = false;
 }
 
 function closeFlightModal() {
   dom.flightModal.hidden = true;
+  revokeUrls(modalPhotoUrls);
+  state.editingBlocks = [];
 }
 
 dom.btnAddFlight.addEventListener("click", () => openFlightModal(null));
@@ -350,23 +437,73 @@ dom.btnFlightEdit.addEventListener("click", () => {
 });
 dom.btnFlightCancel.addEventListener("click", closeFlightModal);
 
-dom.btnFlightSave.addEventListener("click", () => {
-  const notlar = dom.flightNotlar.value.trim();
-  if (!notlar) {
-    dom.flightNotlar.classList.add("error");
+function addPhotoBlocks(files) {
+  for (const file of files) {
+    state.editingBlocks.push(createBlock({ type: "photo", blob: file, name: file.name }));
+  }
+  // Fotoğraftan sonra yazmaya devam edilebilsin diye sonda her zaman bir metin bloğu bulunur.
+  const last = state.editingBlocks[state.editingBlocks.length - 1];
+  if (!last || last.type !== "text") {
+    state.editingBlocks.push(createBlock({ type: "text", text: "" }));
+  }
+  renderFlightBlocks();
+  const textareas = dom.flightBlocksContainer.querySelectorAll(".block-textarea");
+  const lastTextarea = textareas[textareas.length - 1];
+  if (lastTextarea) lastTextarea.focus();
+}
+
+dom.btnFlightPhotoGallery.addEventListener("click", () => dom.flightPhotoGalleryInput.click());
+dom.btnFlightPhotoCamera.addEventListener("click", () => dom.flightPhotoCameraInput.click());
+
+dom.flightPhotoGalleryInput.addEventListener("change", () => {
+  const files = Array.from(dom.flightPhotoGalleryInput.files || []);
+  dom.flightPhotoGalleryInput.value = "";
+  if (files.length) addPhotoBlocks(files);
+});
+
+dom.flightPhotoCameraInput.addEventListener("change", () => {
+  const files = Array.from(dom.flightPhotoCameraInput.files || []);
+  dom.flightPhotoCameraInput.value = "";
+  if (files.length) addPhotoBlocks(files);
+});
+
+dom.flightBlocksContainer.addEventListener("input", (ev) => {
+  const ta = ev.target.closest(".block-textarea");
+  if (!ta) return;
+  const block = state.editingBlocks.find((b) => b.id === ta.dataset.blockId);
+  if (block) block.text = ta.value;
+  autoGrow(ta);
+});
+
+dom.flightBlocksContainer.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-remove-block]");
+  if (!btn) return;
+  state.editingBlocks = state.editingBlocks.filter((b) => b.id !== btn.dataset.removeBlock);
+  normalizeEditingBlocks({ keepTrailingEmpty: true });
+  renderFlightBlocks();
+});
+
+dom.btnFlightSave.addEventListener("click", async () => {
+  normalizeEditingBlocks();
+  if (!flightText({ blocks: state.editingBlocks })) {
+    dom.flightBlocksError.hidden = false;
+    renderFlightBlocks();
     return;
   }
+  const blocks = state.editingBlocks;
   if (state.editingFlightId) {
     const flight = state.report.flights.find((f) => f.id === state.editingFlightId);
-    if (flight) flight.notlar = notlar;
+    if (flight) flight.blocks = blocks;
     state.selectedFlightId = state.editingFlightId;
   } else {
-    const created = addFlight(state.report, createFlight({ notlar }));
+    const created = addFlight(state.report, createFlight({ blocks }));
     state.selectedFlightId = created.id;
   }
-  closeFlightModal();
+  dom.flightModal.hidden = true;
+  revokeUrls(modalPhotoUrls);
+  state.editingBlocks = [];
   refreshFlightsList();
-  autosave();
+  await autosave();
 });
 
 dom.btnFlightDelete.addEventListener("click", async () => {
@@ -380,21 +517,7 @@ dom.btnFlightDelete.addEventListener("click", async () => {
   removeFlight(state.report, state.selectedFlightId);
   state.selectedFlightId = null;
   refreshFlightsList();
-  autosave();
-});
-
-dom.btnFlightUp.addEventListener("click", () => {
-  if (!state.selectedFlightId) return;
-  moveFlight(state.report, state.selectedFlightId, -1);
-  refreshFlightsList();
-  autosave();
-});
-
-dom.btnFlightDown.addEventListener("click", () => {
-  if (!state.selectedFlightId) return;
-  moveFlight(state.report, state.selectedFlightId, 1);
-  refreshFlightsList();
-  autosave();
+  await autosave();
 });
 
 // ---------------- Taslak Kaydet ----------------
@@ -409,7 +532,7 @@ dom.btnSaveDraftCancel.addEventListener("click", () => {
 dom.btnSaveDraftConfirm.addEventListener("click", async () => {
   const name = dom.saveDraftName.value.trim();
   if (!name) return;
-  storage.saveDraft(state.report, name);
+  await storage.saveDraft(state.report, name);
   dom.saveDraftModal.hidden = true;
   await notify({ title: "Taslak Kaydedildi", message: `Taslak kaydedildi: ${name}` });
 });
@@ -460,13 +583,13 @@ dom.btnApprove.addEventListener("click", async () => {
     const blob = await exportReportBlob(state.report);
     await downloadOrShareBlob(blob, filename);
     const recordName = filename.replace(/\.docx$/i, "");
-    storage.saveDraft(state.report, recordName);
-    storage.clearAutosave();
+    await storage.saveDraft(state.report, recordName);
+    await storage.clearAutosave();
     await notify({
       title: "Rapor Oluşturuldu",
       message: `Word dosyası oluşturuldu: ${filename}\nRapor, Ana Menü'deki listenizde kayıtlı kalacak.`,
     });
-    showHomeView();
+    await showHomeView();
   } catch (err) {
     await notify({ title: "Hata", message: "Word dosyası oluşturulamadı: " + err.message });
   } finally {
@@ -486,12 +609,12 @@ setInterval(() => {
 // ---------------- Başlangıç ----------------
 
 async function checkAutosaveOnStart() {
-  const autosaved = storage.loadAutosave();
+  const autosaved = await storage.loadAutosave();
   if (!autosaved) return;
   const hasContent =
     !!(autosaved.general.platform || autosaved.general.testin_amaci || autosaved.flights.length);
   if (!hasContent) {
-    storage.clearAutosave();
+    await storage.clearAutosave();
     return;
   }
   const ok = await notify({
@@ -505,7 +628,7 @@ async function checkAutosaveOnStart() {
     showWizardView();
     goToStep(0);
   } else {
-    storage.clearAutosave();
+    await storage.clearAutosave();
   }
 }
 

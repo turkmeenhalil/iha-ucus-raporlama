@@ -1,9 +1,13 @@
 // Adım 2: Uçuşlar listesi (app/ui/flights_page.py karşılığı).
 
+import { flightText, flightPhotoCount } from "../models.js";
+
 function summarize(flight, index) {
-  let notOzet = (flight.notlar || "").trim().replace(/\n/g, " ");
+  let notOzet = flightText(flight).replace(/\n/g, " ");
   if (notOzet.length > 90) notOzet = notOzet.slice(0, 90) + "...";
-  return `Uçuş ${index}\n${notOzet || "(Not girilmedi)"}`;
+  const photoCount = flightPhotoCount(flight);
+  const photoSuffix = photoCount ? ` · 📷 ${photoCount}` : "";
+  return `Uçuş ${index}${photoSuffix}\n${notOzet || "(Not girilmedi)"}`;
 }
 
 export function renderFlightsList(listEl, emptyEl, flights, selectedId) {
@@ -21,10 +25,7 @@ export function renderFlightsList(listEl, emptyEl, flights, selectedId) {
 }
 
 export function updateFlightButtonStates(buttons, flights, selectedId) {
-  const idx = flights.findIndex((f) => f.id === selectedId);
-  const hasSelection = idx !== -1;
+  const hasSelection = flights.some((f) => f.id === selectedId);
   buttons.editBtn.disabled = !hasSelection;
   buttons.deleteBtn.disabled = !hasSelection;
-  buttons.upBtn.disabled = !hasSelection || idx <= 0;
-  buttons.downBtn.disabled = !hasSelection || idx === -1 || idx >= flights.length - 1;
 }

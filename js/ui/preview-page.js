@@ -39,7 +39,7 @@ function fullWidthValue(value) {
   return `<tr><td colspan="4">${e(value)}</td></tr>`;
 }
 
-export function buildPreviewHtml(report) {
+export function buildPreviewHtml(report, urlFor) {
   const g = report.general;
   let rows = "";
   rows += twoLabelValueRow("Tarih:", g.tarih, "Proje:", g.proje);
@@ -64,9 +64,17 @@ export function buildPreviewHtml(report) {
     flightRows = `<tr><td colspan="2"><i>Bu rapora henüz uçuş eklenmemiştir.</i></td></tr>`;
   } else {
     report.flights.forEach((flight, i) => {
+      const blocksHtml = flight.blocks
+        .map((block) => {
+          if (block.type === "photo") {
+            return `<div class="preview-block-photo"><img src="${urlFor(block)}" alt="Uçuş ${i + 1} fotoğraf"></div>`;
+          }
+          return block.text.trim() ? `<div class="preview-block-text">${e(block.text)}</div>` : "";
+        })
+        .join("");
       flightRows += `<tr>
         <td class="flight-label">Uçuş ${i + 1}:</td>
-        <td class="flight-notes">${e(flight.notlar)}</td>
+        <td class="flight-notes">${blocksHtml}</td>
       </tr>`;
     });
   }

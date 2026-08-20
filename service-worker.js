@@ -1,7 +1,7 @@
 // Offline-first service worker: tüm uygulama kabuğunu önbelleğe alır,
 // böylece internet olmadan tam çalışır. Sürüm değiştikçe CACHE_NAME'i artırın.
 
-const CACHE_NAME = "iha-rapor-v5";
+const CACHE_NAME = "iha-rapor-v16";
 
 const PRECACHE_URLS = [
   "./",
@@ -12,8 +12,10 @@ const PRECACHE_URLS = [
   "./js/models.js",
   "./js/validation.js",
   "./js/storage.js",
+  "./js/db.js",
   "./js/backup.js",
   "./js/docx-export.js",
+  "./js/weather.js",
   "./js/ui/general-page.js",
   "./js/ui/flights-page.js",
   "./js/ui/home.js",
@@ -43,6 +45,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // Hava durumu verisi her zaman güncel olmalı: önbelleğe alınmadan doğrudan ağdan getirilir.
+  if (event.request.url.includes("api.open-meteo.com")) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

@@ -22,11 +22,41 @@ function uuid4() {
   );
 }
 
+export function createBlock(data = {}) {
+  if (data.type === "photo") {
+    return { id: data.id || uuid4(), type: "photo", blob: data.blob, name: data.name || "" };
+  }
+  return { id: data.id || uuid4(), type: "text", text: data.text ?? "" };
+}
+
+// Uçuş içeriği, girildiği sırayla metin ve fotoğraf bloklarından oluşur
+// (metin - görsel - metin - görsel ...). Eski kayıtlarda (notlar + photos)
+// bu yapı otomatik olarak bloklara çevrilir.
 export function createFlight(data = {}) {
+  let rawBlocks = data.blocks;
+  if (!rawBlocks) {
+    rawBlocks = [];
+    if (data.notlar) rawBlocks.push({ type: "text", text: data.notlar });
+    for (const p of data.photos || []) rawBlocks.push({ type: "photo", id: p.id, blob: p.blob, name: p.name });
+  }
+  const blocks = rawBlocks.map(createBlock);
+  if (!blocks.length) blocks.push(createBlock({ type: "text", text: "" }));
   return {
     id: data.id || uuid4(),
-    notlar: data.notlar ?? "",
+    blocks,
   };
+}
+
+export function flightText(flight) {
+  return flight.blocks
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+}
+
+export function flightPhotoCount(flight) {
+  return flight.blocks.filter((b) => b.type === "photo").length;
 }
 
 function nowIso() {
@@ -51,14 +81,4 @@ export function addFlight(report, flight = null) {
 
 export function removeFlight(report, flightId) {
   report.flights = report.flights.filter((f) => f.id !== flightId);
-}
-
-export function moveFlight(report, flightId, direction) {
-  const idx = report.flights.findIndex((f) => f.id === flightId);
-  if (idx === -1) return;
-  const newIdx = idx + direction;
-  if (newIdx < 0 || newIdx >= report.flights.length) return;
-  const tmp = report.flights[idx];
-  report.flights[idx] = report.flights[newIdx];
-  report.flights[newIdx] = tmp;
 }

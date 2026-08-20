@@ -82,8 +82,6 @@
         <div class="actions-row">
           <button id="btn-add-flight" class="btn btn-primary">+ Uçuş Ekle</button>
           <span class="spacer"></span>
-          <button id="btn-flight-up" class="btn" disabled>▲ Yukarı</button>
-          <button id="btn-flight-down" class="btn" disabled>▼ Aşağı</button>
           <button id="btn-flight-edit" class="btn" disabled>Düzenle</button>
           <button id="btn-flight-delete" class="btn btn-danger" disabled>Sil</button>
         </div>
@@ -143,8 +141,19 @@
 <div id="flight-modal" class="modal-overlay" hidden>
   <div class="modal">
     <h2 id="flight-modal-title" class="section-title">Uçuş Ekle</h2>
-    <label class="field-label" for="flight-notlar">Uçuş Notları *</label>
-    <textarea id="flight-notlar" class="textarea-lg" placeholder="Uçuş saatini, süresini, yaşanan olayları, gözlemleri ve test sonuçlarını yazın..."></textarea>
+    <label class="field-label">Uçuş Notları *</label>
+    <p class="field-hint">Metni yazın, istediğiniz noktada fotoğraf ekleyin, altından yazmaya devam edin.</p>
+
+    <div id="flight-blocks" class="flight-blocks"></div>
+    <p id="flight-blocks-error" class="field-hint field-hint-error" hidden>Uçuş Notları alanı doldurulmalıdır.</p>
+
+    <div class="actions-row">
+      <button type="button" id="btn-flight-photo-gallery" class="btn">🖼 Galeriden Seç</button>
+      <button type="button" id="btn-flight-photo-camera" class="btn">📷 Fotoğraf Çek</button>
+    </div>
+    <input id="flight-photo-gallery-input" type="file" accept="image/*" multiple hidden>
+    <input id="flight-photo-camera-input" type="file" accept="image/*" capture="environment" hidden>
+
     <div class="actions-row">
       <span class="spacer"></span>
       <button id="btn-flight-cancel" class="btn">Vazgeç</button>

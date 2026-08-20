@@ -1,5 +1,9 @@
 // Adım 1: Genel Bilgiler formu (app/ui/general_page.py karşılığı).
 
+import { fetchWeatherDescription } from "../weather.js";
+
+const WEATHER_KEY = "hava_kosullari";
+
 const FIELD_PAIRS = [
   [["Tarih", "tarih", "date", true], ["Proje", "proje", "text", false]],
   [["Platform", "platform", "text", true], ["YKİ", "yki", "text", false]],
@@ -58,14 +62,29 @@ function labelHtml(label, key, required, full = false) {
   return `<label class="${cls}" for="field-${key}">${label}</label>`;
 }
 
+function weatherFieldHtml(label, key, required) {
+  return (
+    `${labelHtml(label, key, required)}` +
+    `<div class="input-with-button">` +
+    `<input class="input" type="text" id="field-${key}" data-key="${key}">` +
+    `<button type="button" id="btn-weather-fetch" class="btn btn-small" title="Konumdan hava durumunu getir">📍 Getir</button>` +
+    `</div>` +
+    `<p id="weather-status" class="field-hint" hidden></p>`
+  );
+}
+
 export function renderGeneralForm(formEl) {
   let html = "";
 
   for (const [left, right] of FIELD_PAIRS) {
     const [l1, k1, t1, r1] = left;
     const [l2, k2, t2, r2] = right;
-    html += `<div>${labelHtml(l1, k1, r1)}${fieldInputHtml(k1, t1, r1)}</div>`;
-    html += `<div>${labelHtml(l2, k2, r2)}${fieldInputHtml(k2, t2, r2)}</div>`;
+    html += k1 === WEATHER_KEY
+      ? `<div>${weatherFieldHtml(l1, k1, r1)}</div>`
+      : `<div>${labelHtml(l1, k1, r1)}${fieldInputHtml(k1, t1, r1)}</div>`;
+    html += k2 === WEATHER_KEY
+      ? `<div>${weatherFieldHtml(l2, k2, r2)}</div>`
+      : `<div>${labelHtml(l2, k2, r2)}${fieldInputHtml(k2, t2, r2)}</div>`;
   }
 
   html += `<div class="field-section-title">Release Matrix Versiyonu</div>`;
@@ -87,6 +106,33 @@ export function renderGeneralForm(formEl) {
   }
 
   formEl.innerHTML = html;
+  wireWeatherButton(formEl);
+}
+
+function wireWeatherButton(formEl) {
+  const btn = formEl.querySelector("#btn-weather-fetch");
+  const status = formEl.querySelector("#weather-status");
+  const input = formEl.querySelector(`#field-${WEATHER_KEY}`);
+  if (!btn || !status || !input) return;
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    status.hidden = false;
+    status.classList.remove("field-hint-error");
+    status.textContent = "Konum alınıyor ve hava durumu getiriliyor…";
+
+    try {
+      const description = await fetchWeatherDescription();
+      input.value = description;
+      input.classList.remove("error");
+      status.textContent = "Hava durumu konumdan dolduruldu. Gerekirse elle düzenleyebilirsiniz.";
+    } catch (err) {
+      status.classList.add("field-hint-error");
+      status.textContent = err && err.message ? err.message : "Hava durumu alınamadı.";
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 export function getGeneralData(formEl) {

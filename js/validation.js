@@ -1,5 +1,7 @@
 // Rapor onaylanmadan önce yapılan zorunlu alan kontrolleri (app/validation.py birebir karşılığı).
 
+import { flightText } from "./models.js";
+
 export const GENERAL_REQUIRED_FIELDS = [
   ["platform", "Platform"],
   ["tarih", "Tarih"],
@@ -17,7 +19,7 @@ export function validateGeneral(general) {
 
 export function validateFlight(flight, index) {
   const errors = [];
-  if (!(flight.notlar || "").trim()) {
+  if (!flightText(flight)) {
     errors.push(`⚠ Uçuş ${index}: Uçuş Notları alanı doldurulmalıdır.`);
   }
   return errors;

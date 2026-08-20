@@ -1,11 +1,11 @@
 // Taslakları + otomatik kaydı tek bir JSON dosyasına yedekleme/geri yükleme.
-// iOS'ta uzun süre kullanılmayan PWA'larda localStorage silinebiliyor;
+// iOS'ta uzun süre kullanılmayan PWA'ların site verisi silinebiliyor;
 // bu, ona karşı basit bir güvenlik ağı.
 
 import { exportAllData, importAllData } from "./storage.js";
 
-export function downloadBackup() {
-  const data = exportAllData();
+export async function downloadBackup() {
+  const data = await exportAllData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -38,5 +38,5 @@ export async function restoreBackupFile(file) {
   if (!data || typeof data !== "object" || !("drafts" in data)) {
     throw new Error("Geçersiz yedek dosyası.");
   }
-  importAllData(data);
+  await importAllData(data);
 }
