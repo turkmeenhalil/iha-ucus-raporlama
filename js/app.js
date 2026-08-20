@@ -640,7 +640,12 @@ function registerServiceWorker() {
   }
 }
 
-updateOfflineBadge();
-showHomeView();
-registerServiceWorker();
-checkAutosaveOnStart();
+async function init() {
+  updateOfflineBadge();
+  await storage.migrateLegacyLocalStorage();
+  await showHomeView();
+  registerServiceWorker();
+  await checkAutosaveOnStart();
+}
+
+init();

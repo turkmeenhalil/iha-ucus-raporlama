@@ -108,6 +108,56 @@ export async function deleteDraft(key) {
   await reqToPromise(store.delete(key));
 }
 
+// ---------------- Eski localStorage verisini bir kereliğine IndexedDB'ye taşı ----------------
+// Fotoğraf özelliği eklenmeden önce raporlar localStorage'da tutuluyordu. Depolama
+// IndexedDB'ye taşındığında uygulama artık oraya bakmadığı için eski raporlar
+// "kayboldu" gibi görünüyordu — oysa localStorage'da hâlâ duruyorlardı. Bu fonksiyon
+// onları IndexedDB'ye kopyalar (localStorage'daki veriyi silmez, sadece kopyalar).
+
+const LEGACY_AUTOSAVE_KEY = "iha_rapor:autosave";
+const LEGACY_DRAFT_PREFIX = "iha_rapor:taslak:";
+const MIGRATION_DONE_KEY = "iha_rapor:idb_migration_v1_done";
+
+export async function migrateLegacyLocalStorage() {
+  if (typeof localStorage === "undefined") return;
+  if (localStorage.getItem(MIGRATION_DONE_KEY)) return;
+
+  try {
+    const store = await tx("readwrite");
+
+    const autosaveRaw = localStorage.getItem(LEGACY_AUTOSAVE_KEY);
+    if (autosaveRaw) {
+      const existing = await reqToPromise(store.get(AUTOSAVE_KEY));
+      if (!existing) {
+        const data = JSON.parse(autosaveRaw);
+        await reqToPromise(
+          store.put({ key: AUTOSAVE_KEY, type: "autosave", updated_at: data.updated_at || nowIso(), data })
+        );
+      }
+    }
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const legacyKey = localStorage.key(i);
+      if (!legacyKey || !legacyKey.startsWith(LEGACY_DRAFT_PREFIX)) continue;
+      const raw = localStorage.getItem(legacyKey);
+      if (!raw) continue;
+      const name = legacyKey.slice(LEGACY_DRAFT_PREFIX.length);
+      const newKey = DRAFT_PREFIX + name;
+      const existing = await reqToPromise(store.get(newKey));
+      if (existing) continue;
+      const data = JSON.parse(raw);
+      await reqToPromise(
+        store.put({ key: newKey, type: "draft", name, updated_at: data.updated_at || nowIso(), data })
+      );
+    }
+
+    localStorage.setItem(MIGRATION_DONE_KEY, "1");
+  } catch {
+    // Taşıma başarısız olursa sessizce geç; localStorage verisi silinmediği için veri kaybolmaz,
+    // bir sonraki açılışta tekrar denenir (MIGRATION_DONE_KEY yazılmadı).
+  }
+}
+
 // ---------------- Yedekleme (JSON dışa/içe aktarım) ----------------
 // Blob'lar JSON'a yazılamaz; yedek dosyasında base64'e çevrilir.
 

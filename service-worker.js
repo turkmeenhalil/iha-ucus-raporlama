@@ -1,7 +1,7 @@
 // Offline-first service worker: tüm uygulama kabuğunu önbelleğe alır,
 // böylece internet olmadan tam çalışır. Sürüm değiştikçe CACHE_NAME'i artırın.
 
-const CACHE_NAME = "iha-rapor-v16";
+const CACHE_NAME = "iha-rapor-v17";
 
 const PRECACHE_URLS = [
   "./",
